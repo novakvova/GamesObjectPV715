@@ -1,6 +1,7 @@
+using UnityEngine;
+using UnityEngine.Networking;
 using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
 
 public class SlingShot : MonoBehaviour
 {
@@ -80,11 +81,37 @@ public class SlingShot : MonoBehaviour
     }
     void Start()
     {
+        // A correct website page.
+        StartCoroutine(GetRequest("http://13.66.95.204/api/game"));
 
+        // A non-existing page.
+       // StartCoroutine(GetRequest("https://error.html"));
     }
 
-    // Update is called once per frame
-    void Update()
+    IEnumerator GetRequest(string uri)
+    {
+        using (UnityWebRequest webRequest = UnityWebRequest.Get(uri))
+        {
+            // Request and wait for the desired page.
+            yield return webRequest.SendWebRequest();
+
+            string[] pages = uri.Split('/');
+            int page = pages.Length - 1;
+
+            if (webRequest.isNetworkError)
+            {
+                Debug.Log(pages[page] + ": Error: " + webRequest.error);
+            }
+            else
+            {
+                string text = webRequest.downloadHandler.text;
+                Debug.Log(pages[page] + ":\nReceived: " + text);
+            }
+        }
+    }
+
+        // Update is called once per frame
+        void Update()
     {
         if (Input.GetKeyDown(KeyCode.Space))
         {
