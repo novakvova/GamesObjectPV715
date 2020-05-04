@@ -1,7 +1,20 @@
 using UnityEngine;
 using UnityEngine.Networking;
 using System.Collections;
-using System.Collections.Generic;
+using Newtonsoft.Json;
+using System.Threading;
+class SoliderModel
+{
+    public Vec3f pos { get; set; }
+    public Vec3f velocity { get; set; }
+}
+
+class Vec3f
+{
+    public float x { get; set; }
+    public float y { get; set; }
+    public float z { get; set; }
+}
 
 public class SlingShot : MonoBehaviour
 {
@@ -12,7 +25,6 @@ public class SlingShot : MonoBehaviour
     public Material[] materials;
     public float velocityMult = 8f;
     [Header("Set Dynamically")]
-
     public GameObject launchPoint;
     public Vector3 launchPos;
     public GameObject projectile; // b
@@ -26,6 +38,8 @@ public class SlingShot : MonoBehaviour
             return S.launchPos;
         }
     }
+    private SoliderModel _solider;//модель збереження координат точок з бек-енда
+
     //*********************************************
     public Material Material_In;
     private int i = 0;
@@ -81,20 +95,15 @@ public class SlingShot : MonoBehaviour
     }
     void Start()
     {
-        // A correct website page.
+        int id = Thread.CurrentThread.ManagedThreadId;
         StartCoroutine(GetRequest("http://13.66.95.204/api/game"));
-
-        // A non-existing page.
-       // StartCoroutine(GetRequest("https://error.html"));
     }
 
     IEnumerator GetRequest(string uri)
     {
         using (UnityWebRequest webRequest = UnityWebRequest.Get(uri))
         {
-            // Request and wait for the desired page.
             yield return webRequest.SendWebRequest();
-
             string[] pages = uri.Split('/');
             int page = pages.Length - 1;
 
@@ -105,50 +114,49 @@ public class SlingShot : MonoBehaviour
             else
             {
                 string text = webRequest.downloadHandler.text;
-                Debug.Log(pages[page] + ":\nReceived: " + text);
+                _solider = JsonConvert.DeserializeObject<SoliderModel>(text);
+                Shoot();
             }
         }
     }
-
-        // Update is called once per frame
-        void Update()
+   
+    void Shoot()
     {
-        if (Input.GetKeyDown(KeyCode.Space))
+        projectile = Instantiate(prefabProjectile) as GameObject;
+        int id = Thread.CurrentThread.ManagedThreadId;
+        if (i >= materials.Length)
         {
-            projectile = Instantiate(prefabProjectile) as GameObject;
-
-            if (i >= materials.Length)
-            {
-                i = 0;
-            }
-            Material[] mats = projectile.GetComponent<Renderer>().materials;
-            mats[0] = materials[i];
-            projectile.GetComponent<Renderer>().materials = mats;
-            i++;
-
-            // Сделать его кинематическим
-            projectile.GetComponent<Rigidbody>().isKinematic = true;
-            projectileRigidbody = projectile.GetComponent<Rigidbody>();
-            projectileRigidbody.isKinematic = true;
-
-            Vector3 myPos = new Vector3(-11.8f, -8.2f, 0.0f);
-            projectile.transform.position = myPos;
-
-            projectileRigidbody.isKinematic = false;
-
-            Vector3 v = new Vector3(14.7f, 17.5f, 0.0f);
-            projectileRigidbody.velocity = v;
-
-            FollowCam.POI = projectile;
-            projectile = null;
-
-
-            MissionDemolition.ShotFired(); // a
-            ProjectileLine.S.poi = projectile;
-
+            i = 0;
         }
+        Material[] mats = projectile.GetComponent<Renderer>().materials;
+        mats[0] = materials[i];
+        projectile.GetComponent<Renderer>().materials = mats;
+        i++;
+
+        // Сделать его кинематическим
+        projectile.GetComponent<Rigidbody>().isKinematic = true;
+        projectileRigidbody = projectile.GetComponent<Rigidbody>();
+        projectileRigidbody.isKinematic = true;
+
+        Vector3 myPos = new Vector3(_solider.pos.x, _solider.pos.y, _solider.pos.z);
+        projectile.transform.position = myPos;
+
+        projectileRigidbody.isKinematic = false;
+
+        Vector3 v = new Vector3(_solider.velocity.x, _solider.velocity.y, _solider.velocity.z);
+        projectileRigidbody.velocity = v;
+
+        FollowCam.POI = projectile;
+        projectile = null;
 
 
+        MissionDemolition.ShotFired(); // a
+        ProjectileLine.S.poi = projectile;
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
         if (!aimingMode) return;
         Vector3 mousePos2D = Input.mousePosition; // с
         mousePos2D.z = -Camera.main.transform.position.z;
