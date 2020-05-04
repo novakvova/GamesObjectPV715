@@ -3,6 +3,9 @@ using UnityEngine.Networking;
 using System.Collections;
 using Newtonsoft.Json;
 using System.Threading;
+using System.IO;
+using System.Net;
+
 class SoliderModel
 {
     public Vec3f pos { get; set; }
@@ -95,29 +98,22 @@ public class SlingShot : MonoBehaviour
     }
     void Start()
     {
-        int id = Thread.CurrentThread.ManagedThreadId;
-        StartCoroutine(GetRequest("http://13.66.95.204/api/game"));
+        Invoke("GetRequest", 1f);
     }
 
-    IEnumerator GetRequest(string uri)
+    void GetRequest()
     {
-        using (UnityWebRequest webRequest = UnityWebRequest.Get(uri))
-        {
-            yield return webRequest.SendWebRequest();
-            string[] pages = uri.Split('/');
-            int page = pages.Length - 1;
-
-            if (webRequest.isNetworkError)
-            {
-                Debug.Log(pages[page] + ": Error: " + webRequest.error);
-            }
-            else
-            {
-                string text = webRequest.downloadHandler.text;
-                _solider = JsonConvert.DeserializeObject<SoliderModel>(text);
-                Shoot();
-            }
-        }
+        const string url = "http://13.66.95.204/api/game";
+        HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
+        request.Method = "GET";
+        var webResponse = request.GetResponse();
+        var webStream = webResponse.GetResponseStream();
+        var responseReader = new StreamReader(webStream);
+        string response = responseReader.ReadToEnd();
+        _solider = JsonConvert.DeserializeObject<SoliderModel>(response);
+        Shoot();
+        responseReader.Close();
+        Invoke("GetRequest", 1f);
     }
    
     void Shoot()
