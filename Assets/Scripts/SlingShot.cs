@@ -1,23 +1,9 @@
-using UnityEngine;
-using UnityEngine.Networking;
 using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
 using Newtonsoft.Json;
-using System.Threading;
-using System.IO;
 using System.Net;
-
-class SoliderModel
-{
-    public Vec3f pos { get; set; }
-    public Vec3f velocity { get; set; }
-}
-
-class Vec3f
-{
-    public float x { get; set; }
-    public float y { get; set; }
-    public float z { get; set; }
-}
+using System.IO;
 
 public class SlingShot : MonoBehaviour
 {
@@ -28,6 +14,7 @@ public class SlingShot : MonoBehaviour
     public Material[] materials;
     public float velocityMult = 8f;
     [Header("Set Dynamically")]
+
     public GameObject launchPoint;
     public Vector3 launchPos;
     public GameObject projectile; // b
@@ -41,12 +28,66 @@ public class SlingShot : MonoBehaviour
             return S.launchPos;
         }
     }
-    private SoliderModel _solider;//модель збереження координат точок з бек-енда
 
+    private bool isFire = true;
     //*********************************************
     public Material Material_In;
     private int i = 0;
     //*********************************************
+
+    void Start()
+    {
+        Invoke("GetRequest", 0.1f);
+    }
+
+    void GetRequest()
+    {
+        // PositionCollider positionCollider = Network.GetData().Result;
+        var pc = Network.GetData("telesyk");
+        if (pc == null)
+        {
+            Invoke("GetRequest", 0.1f);
+        }
+        else
+        {
+            projectile = Instantiate(prefabProjectile) as GameObject;
+
+            if (i >= materials.Length)
+            {
+                i = 0;
+            }
+            Material[] mats = projectile.GetComponent<Renderer>().materials;
+            mats[0] = materials[i];
+            projectile.GetComponent<Renderer>().materials = mats;
+            i++;
+
+            // Сделать его кинематическим
+            projectile.GetComponent<Rigidbody>().isKinematic = true;
+            projectileRigidbody = projectile.GetComponent<Rigidbody>();
+            projectileRigidbody.isKinematic = true;
+
+            //????????????
+            Vector3 myPos = new Vector3(pc.pos.X, pc.pos.Y, pc.pos.Z); //positionCollider.pos;//
+            projectile.transform.position = myPos;
+
+            projectileRigidbody.isKinematic = false;
+
+            //????????????
+            Vector3 v = new Vector3(pc.velocity.X, pc.velocity.Y, pc.velocity.Z);//positionCollider.velocity;
+            projectileRigidbody.velocity = v;
+
+            FollowCam.POI = projectile;
+            projectile = null;
+
+            MissionDemolition.ShotFired(); // a
+            ProjectileLine.S.poi = projectile;
+            isFire = true;
+            Invoke("GetRequest", 0.1f);
+        }
+
+    }
+
+
     void Awake()
     {
         S = this;
@@ -67,92 +108,49 @@ public class SlingShot : MonoBehaviour
         launchPoint.SetActive(false); //    
     }
     void OnMouseDown()
-    { // d
-      // Игрок нажал кнопку мыши, когда указатель находился над рогаткой
-        aimingMode = true;
-        // Создать снаряд
-        projectile = Instantiate(prefabProjectile) as GameObject;
-        //List<Component> hingeJoints = new List<Component>();
-        //projectile.GetComponents(typeof(GameObject), hingeJoints);
-        //Debug.Log(hingeJoints.ToString());
-
-        //******************************************************************************
-
-        if (i >= materials.Length)
+    {
+        if (isFire)
         {
-            i = 0;
+            // d
+            // Игрок нажал кнопку мыши, когда указатель находился над рогаткой
+            aimingMode = true;
+            // Создать снаряд
+            projectile = Instantiate(prefabProjectile) as GameObject;
+            //List<Component> hingeJoints = new List<Component>();
+            //projectile.GetComponents(typeof(GameObject), hingeJoints);
+            //Debug.Log(hingeJoints.ToString());
+
+            //******************************************************************************
+
+            if (i >= materials.Length)
+            {
+                i = 0;
+            }
+            Material[] mats = projectile.GetComponent<Renderer>().materials;
+            mats[0] = materials[i];
+            projectile.GetComponent<Renderer>().materials = mats;
+            i++;
+
+            //******************************************************************************
+
+            // Поместить в точку launchPoint
+            projectile.transform.position = launchPos;
+            // Сделать его кинематическим
+            projectile.GetComponent<Rigidbody>().isKinematic = true;
+            projectileRigidbody = projectile.GetComponent<Rigidbody>();
+            projectileRigidbody.isKinematic = true;
         }
-        Material[] mats = projectile.GetComponent<Renderer>().materials;
-        mats[0] = materials[i];
-        projectile.GetComponent<Renderer>().materials = mats;
-        i++;
-
-        //******************************************************************************
-
-        // Поместить в точку launchPoint
-        projectile.transform.position = launchPos;
-        // Сделать его кинематическим
-        projectile.GetComponent<Rigidbody>().isKinematic = true;
-        projectileRigidbody = projectile.GetComponent<Rigidbody>();
-        projectileRigidbody.isKinematic = true;
-    }
-    void Start()
-    {
-        Invoke("GetRequest", 1f);
     }
 
-    void GetRequest()
-    {
-        const string url = "http://13.66.95.204/api/game";
-        HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
-        request.Method = "GET";
-        var webResponse = request.GetResponse();
-        var webStream = webResponse.GetResponseStream();
-        var responseReader = new StreamReader(webStream);
-        string response = responseReader.ReadToEnd();
-        _solider = JsonConvert.DeserializeObject<SoliderModel>(response);
-        Shoot();
-        responseReader.Close();
-        Invoke("GetRequest", 1f);
-    }
-   
-    void Shoot()
-    {
-        projectile = Instantiate(prefabProjectile) as GameObject;
-        int id = Thread.CurrentThread.ManagedThreadId;
-        if (i >= materials.Length)
-        {
-            i = 0;
-        }
-        Material[] mats = projectile.GetComponent<Renderer>().materials;
-        mats[0] = materials[i];
-        projectile.GetComponent<Renderer>().materials = mats;
-        i++;
-
-        // Сделать его кинематическим
-        projectile.GetComponent<Rigidbody>().isKinematic = true;
-        projectileRigidbody = projectile.GetComponent<Rigidbody>();
-        projectileRigidbody.isKinematic = true;
-
-        Vector3 myPos = new Vector3(_solider.pos.x, _solider.pos.y, _solider.pos.z);
-        projectile.transform.position = myPos;
-
-        projectileRigidbody.isKinematic = false;
-
-        Vector3 v = new Vector3(_solider.velocity.x, _solider.velocity.y, _solider.velocity.z);
-        projectileRigidbody.velocity = v;
-
-        FollowCam.POI = projectile;
-        projectile = null;
-
-
-        MissionDemolition.ShotFired(); // a
-        ProjectileLine.S.poi = projectile;
-    }
 
     // Update is called once per frame
     void Update()
     {
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+
+        }
+
         if (!aimingMode) return;
         Vector3 mousePos2D = Input.mousePosition; // с
         mousePos2D.z = -Camera.main.transform.position.z;
@@ -174,11 +172,69 @@ public class SlingShot : MonoBehaviour
             projectileRigidbody.isKinematic = false;
             projectileRigidbody.velocity = -mouseDelta * velocityMult;
             FollowCam.POI = projectile;
+            Network.PostData("john", projPos, projectileRigidbody.velocity);
+            isFire = false;
             projectile = null;
-
 
             MissionDemolition.ShotFired(); // a
             ProjectileLine.S.poi = projectile;
         }
+
     }
+}
+
+public class Network
+{
+    public static Solider GetData(string nick)
+    {
+        string url = string.Format("http://40.127.228.172/api/game/{0}", nick);
+        HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
+        request.Method = "GET";
+        var webResponse = request.GetResponse();
+        var webStream = webResponse.GetResponseStream();
+        var responseReader = new StreamReader(webStream);
+        string response = responseReader.ReadToEnd();
+        Solider pc = JsonConvert.DeserializeObject<Solider>(response);
+        responseReader.Close();
+        return pc;
+
+    }
+
+    public static void PostData(string nick, Vector3 pos, Vector3 velocity)
+    {
+        var httpWebRequest = (HttpWebRequest)WebRequest.Create("http://40.127.228.172/api/game");
+        httpWebRequest.ContentType = "application/json";
+        httpWebRequest.Method = "POST";
+        using (var streamWriter = new StreamWriter(httpWebRequest.GetRequestStream()))
+        {
+            Solider pc = new Solider
+            {
+                Nick = nick,
+                pos = new PosVextor3 { X = pos.x, Y = pos.y, Z = pos.z },
+                velocity = new PosVextor3 { X = velocity.x, Y = velocity.y, Z = velocity.z }
+            };
+            string json = JsonConvert.SerializeObject(pc);
+            streamWriter.Write(json);
+        }
+        var httpResponse = (HttpWebResponse)httpWebRequest.GetResponse();
+        using (var streamReader = new StreamReader(httpResponse.GetResponseStream()))
+        {
+            var result = streamReader.ReadToEnd();
+        }
+    }
+}
+
+public class Solider
+{
+    public string Nick { get; set; }
+    public PosVextor3 pos { get; set; }
+    public PosVextor3 velocity { get; set; }
+
+}
+
+public class PosVextor3
+{
+    public float X { get; set; }
+    public float Y { get; set; }
+    public float Z { get; set; }
 }
