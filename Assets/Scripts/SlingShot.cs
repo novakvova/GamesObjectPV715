@@ -8,13 +8,13 @@ using System.IO;
 public class SlingShot : MonoBehaviour
 {
     static private SlingShot S;
+    static public string firstName, secondName;
 
     [Header("Set in Inspector")]
     public GameObject prefabProjectile;
     public Material[] materials;
     public float velocityMult = 8f;
     [Header("Set Dynamically")]
-
     public GameObject launchPoint;
     public Vector3 launchPos;
     public GameObject projectile; // b
@@ -43,7 +43,7 @@ public class SlingShot : MonoBehaviour
     void GetRequest()
     {
         // PositionCollider positionCollider = Network.GetData().Result;
-        var pc = Network.GetData("telesyk");
+        var pc = Network.GetData(firstName);
         if (pc == null)
         {
             Invoke("GetRequest", 0.1f);
@@ -172,7 +172,7 @@ public class SlingShot : MonoBehaviour
             projectileRigidbody.isKinematic = false;
             projectileRigidbody.velocity = -mouseDelta * velocityMult;
             FollowCam.POI = projectile;
-            Network.PostData("john", projPos, projectileRigidbody.velocity);
+            Network.PostData(secondName, projPos, projectileRigidbody.velocity);
             isFire = false;
             projectile = null;
 
