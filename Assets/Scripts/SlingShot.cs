@@ -9,11 +9,13 @@ public class SlingShot : MonoBehaviour
 {
     static private SlingShot S;
     static public string firstName, secondName;
+    static public bool isFire = false;
 
     [Header("Set in Inspector")]
     public GameObject prefabProjectile;
     public Material[] materials;
     public float velocityMult = 8f;
+    public float server_fps = 0.5f;
     [Header("Set Dynamically")]
     public GameObject launchPoint;
     public Vector3 launchPos;
@@ -29,7 +31,7 @@ public class SlingShot : MonoBehaviour
         }
     }
 
-    private bool isFire = true;
+    
     //*********************************************
     public Material Material_In;
     private int i = 0;
@@ -37,53 +39,53 @@ public class SlingShot : MonoBehaviour
 
     void Start()
     {
-        Invoke("GetRequest", 0.1f);
+        Invoke("GetRequest", server_fps);
     }
 
     void GetRequest()
     {
         // PositionCollider positionCollider = Network.GetData().Result;
-        var pc = Network.GetData(firstName);
-        if (pc == null)
+        if (!isFire)
         {
-            Invoke("GetRequest", 0.1f);
-        }
-        else
-        {
-            projectile = Instantiate(prefabProjectile) as GameObject;
+            var pc = Network.GetData(firstName);
+            if (pc != null)
+            { 
+                projectile = Instantiate(prefabProjectile) as GameObject;
 
-            if (i >= materials.Length)
-            {
-                i = 0;
+                if (i >= materials.Length)
+                {
+                    i = 0;
+                }
+                Material[] mats = projectile.GetComponent<Renderer>().materials;
+                mats[0] = materials[i];
+                projectile.GetComponent<Renderer>().materials = mats;
+                i++;
+
+                // Сделать его кинематическим
+                projectile.GetComponent<Rigidbody>().isKinematic = true;
+                projectileRigidbody = projectile.GetComponent<Rigidbody>();
+                projectileRigidbody.isKinematic = true;
+
+                //????????????
+                Vector3 myPos = new Vector3(pc.pos.X, pc.pos.Y, pc.pos.Z); //positionCollider.pos;//
+                projectile.transform.position = myPos;
+
+                projectileRigidbody.isKinematic = false;
+
+                //????????????
+                Vector3 v = new Vector3(pc.velocity.X, pc.velocity.Y, pc.velocity.Z);//positionCollider.velocity;
+                projectileRigidbody.velocity = v;
+
+                FollowCam.POI = projectile;
+                projectile = null;
+
+                MissionDemolition.ShotFired(); // a
+                ProjectileLine.S.poi = projectile;
+                isFire = true;
+              
             }
-            Material[] mats = projectile.GetComponent<Renderer>().materials;
-            mats[0] = materials[i];
-            projectile.GetComponent<Renderer>().materials = mats;
-            i++;
-
-            // Сделать его кинематическим
-            projectile.GetComponent<Rigidbody>().isKinematic = true;
-            projectileRigidbody = projectile.GetComponent<Rigidbody>();
-            projectileRigidbody.isKinematic = true;
-
-            //????????????
-            Vector3 myPos = new Vector3(pc.pos.X, pc.pos.Y, pc.pos.Z); //positionCollider.pos;//
-            projectile.transform.position = myPos;
-
-            projectileRigidbody.isKinematic = false;
-
-            //????????????
-            Vector3 v = new Vector3(pc.velocity.X, pc.velocity.Y, pc.velocity.Z);//positionCollider.velocity;
-            projectileRigidbody.velocity = v;
-
-            FollowCam.POI = projectile;
-            projectile = null;
-
-            MissionDemolition.ShotFired(); // a
-            ProjectileLine.S.poi = projectile;
-            isFire = true;
-            Invoke("GetRequest", 0.1f);
         }
+        Invoke("GetRequest", server_fps);
 
     }
 
@@ -187,7 +189,7 @@ public class Network
 {
     public static Solider GetData(string nick)
     {
-        string url = string.Format("http://40.127.228.172/api/game/{0}", nick);
+        string url = string.Format("http://52.171.228.182/api/game/{0}", nick);
         HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
         request.Method = "GET";
         var webResponse = request.GetResponse();
@@ -202,7 +204,7 @@ public class Network
 
     public static void PostData(string nick, Vector3 pos, Vector3 velocity)
     {
-        var httpWebRequest = (HttpWebRequest)WebRequest.Create("http://40.127.228.172/api/game");
+        var httpWebRequest = (HttpWebRequest)WebRequest.Create("http://52.171.228.182/api/game");
         httpWebRequest.ContentType = "application/json";
         httpWebRequest.Method = "POST";
         using (var streamWriter = new StreamWriter(httpWebRequest.GetRequestStream()))
